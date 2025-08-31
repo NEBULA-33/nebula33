@@ -1,0 +1,10 @@
+{
+  "[project]/src/components/GraphView.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/src/components/GraphView.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/node_modules_19c1aca7._.js",
+      "static/chunks/src_components_GraphView_tsx_2a01add4._.js",
+      "static/chunks/src_components_GraphView_tsx_d54a7d6c._.js"
+    ]
+  }
+}
