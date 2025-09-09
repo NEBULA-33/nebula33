@@ -16,6 +16,7 @@ interface NoteListProps {
   isQuizGeneratorVisible: boolean;
   onToggleQuizGenerator: () => void;
   searchTerm: string;
+   onToggleAIImporter: () => void;
   onSearchChange: (term: string) => void;
 }
 
@@ -32,7 +33,8 @@ export default function NoteList({
   isQuizGeneratorVisible,
   onToggleQuizGenerator,
   searchTerm,
-  onSearchChange
+  onSearchChange,
+  onToggleAIImporter
 }: NoteListProps) {
 
   return (
@@ -51,6 +53,7 @@ export default function NoteList({
             <button onClick={() => setViewMode('flashcard')} className={`px-2 py-1 rounded-md ${viewMode === 'flashcard' ? 'bg-blue-600' : 'hover:bg-gray-700'}`}>Kartlar</button>
             <button onClick={onStartReview} className={`px-2 py-1 rounded-md ${viewMode === 'review' ? 'bg-green-600' : 'hover:bg-gray-700'}`}>Tekrar</button>
             <button onClick={onToggleQuizGenerator} className={`px-2 py-1 rounded-md col-span-2 ${isQuizGeneratorVisible ? 'bg-purple-600' : 'hover:bg-gray-700'}`}>🤖 AI Quiz</button>
+            <button onClick={onToggleAIImporter}>AI ile Aktar </button>
         </div>
         <input
           type="text"

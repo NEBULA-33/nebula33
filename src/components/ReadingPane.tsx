@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Note } from '../app/page';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
 
 interface ReadingPaneProps {
   activeNote: Note | null;
@@ -17,8 +19,29 @@ interface ReadingPaneProps {
   canGoForward: boolean;
 }
 
-const WikiLinkRenderer = ({ content, notes, onNoteLinkClick }: { content: string, notes: Note[], onNoteLinkClick: (note: Note) => void }) => {
+// Özel Resim Bileşeni: Tıklandığında Lightbox'ı açar
+const CustomImage = ({ src, alt, images, setImageIndex, setLightboxOpen }: any) => {
+  const handleClick = () => {
+    const index = images.findIndex((img: { src: string }) => img.src === src);
+    if (index !== -1) {
+      setImageIndex(index);
+      setLightboxOpen(true);
+    }
+  };
+
+  return <img src={src} alt={alt} onClick={handleClick} className="cursor-pointer max-w-full h-auto rounded-lg" />;
+};
+
+const WikiLinkRenderer = ({ content, notes, onNoteLinkClick, setImageIndex, setLightboxOpen }: { content: string, notes: Note[], onNoteLinkClick: (note: Note) => void, setImageIndex: (index: number) => void, setLightboxOpen: (open: boolean) => void }) => {
   if (!content) return null;
+
+  // Not içeriğindeki tüm resim URL'lerini bir diziye toplar
+  const images = useMemo(() => {
+    if (!content) return [];
+    const regex = /!\[.*?\]\((.*?)\)/g;
+    const matches = [...content.matchAll(regex)];
+    return matches.map(match => ({ src: match[1] }));
+  }, [content]);
 
   const parts = content.split(/(\[\[.*?\]\])/g);
 
@@ -31,12 +54,8 @@ const WikiLinkRenderer = ({ content, notes, onNoteLinkClick }: { content: string
           
           if (linkedNote) {
             return (
-              <a 
-                key={index} 
-                href="#" 
-                onClick={(e) => { e.preventDefault(); onNoteLinkClick(linkedNote); }}
-                className="inline-block text-purple-400 font-semibold hover:underline bg-purple-900 bg-opacity-30 p-1 rounded mx-1"
-              >
+              <a key={index} href="#" onClick={(e) => { e.preventDefault(); onNoteLinkClick(linkedNote); }}
+                className="inline-block text-purple-400 font-semibold hover:underline bg-purple-900 bg-opacity-30 p-1 rounded mx-1">
                 {noteTitle}
               </a>
             );
@@ -44,11 +63,24 @@ const WikiLinkRenderer = ({ content, notes, onNoteLinkClick }: { content: string
           return <span key={index} className="text-gray-500 italic p-1">{noteTitle}</span>;
         }
         
-        return <span key={index}>{part}</span>;
+        return (
+          <ReactMarkdown
+            key={index}
+            remarkPlugins={[remarkGfm]}
+            components={{
+              img: (props) => (
+                <CustomImage {...props} images={images} setImageIndex={setImageIndex} setLightboxOpen={setLightboxOpen} />
+              ),
+            }}
+          >
+            {part}
+          </ReactMarkdown>
+        );
       })}
     </div>
   );
 };
+
 
 export default function ReadingPane({ activeNote, notes, onEdit, onNoteLinkClick, onGoBack, onGoForward, canGoBack, canGoForward }: ReadingPaneProps) {
   const supabase = createClientComponentClient();
@@ -56,6 +88,16 @@ export default function ReadingPane({ activeNote, notes, onEdit, onNoteLinkClick
   const [tags, setTags] = useState<string[]>([]);
   const [backlinks, setBacklinks] = useState<{ id: number; title: string; }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [imageIndex, setImageIndex] = useState(0);
+
+  // Not içeriğindeki tüm resimleri toplayan ana liste
+  const allImagesInNote = useMemo(() => {
+    if (!activeNote?.content) return [];
+    const regex = /!\[.*?\]\((.*?)\)/g;
+    const matches = [...activeNote.content.matchAll(regex)];
+    return matches.map(match => ({ src: match[1] }));
+  }, [activeNote]);
   
   useEffect(() => {
     if (activeNote) {
@@ -105,7 +147,7 @@ export default function ReadingPane({ activeNote, notes, onEdit, onNoteLinkClick
           <button onClick={() => onEdit(activeNote)} className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 font-semibold">Düzenle</button>
         </div>
         <div className="prose prose-invert prose-lg max-w-none">
-          <WikiLinkRenderer content={activeNote.content} notes={notes} onNoteLinkClick={onNoteLinkClick} />
+          <WikiLinkRenderer content={activeNote.content} notes={notes} onNoteLinkClick={onNoteLinkClick} setImageIndex={setImageIndex} setLightboxOpen={setLightboxOpen} />
         </div>
       </div>
       
@@ -128,6 +170,13 @@ export default function ReadingPane({ activeNote, notes, onEdit, onNoteLinkClick
           </div>
         }
       </div>
+
+      <Lightbox
+        open={lightboxOpen}
+        close={() => setLightboxOpen(false)}
+        slides={allImagesInNote}
+        index={imageIndex}
+      />
     </div>
   );
 }

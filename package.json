@@ -19,7 +19,8 @@
     "react-dom": "^18.3.1",
     "react-force-graph-2d": "^1.28.0",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "yet-another-react-lightbox": "^3.25.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
