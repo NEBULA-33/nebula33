@@ -54,9 +54,9 @@ export default function Home() {
 
     if (selectedTag) {
       const lowercasedSelectedTag = selectedTag.toLowerCase();
-      notes = allNotes.filter(note => 
-        note.content.toLowerCase().match(/#\w+/g)?.some(tag => tag === `#${lowercasedSelectedTag}`)
-      );
+     notes = allNotes.filter(note => 
+  note.content.toLowerCase().match(/#[\p{L}0-9_]+/gu)?.some(tag => tag === `#${lowercasedSelectedTag}`)
+);
     }
 
     if (searchTerm.trim() !== '') {
@@ -245,7 +245,8 @@ export default function Home() {
   const processTags = async (noteId: number, content: string) => {
     if (!user) return;
     await supabase.from('note_tags').delete().eq('note_id', noteId);
-    const tagsInContent = content.match(/#\w+/g)?.map(tag => tag.substring(1).toLowerCase()) || [];
+    // DOĞRU SATIR
+    const tagsInContent = content.match(/#[\p{L}0-9_]+/gu)?.map(tag => tag.substring(1).toLowerCase()) || [];
     if (tagsInContent.length === 0) {
       await supabase.rpc('cleanup_orphan_tags');
       const { data: updatedTags } = await supabase.from('tags').select('id, name').order('name');
