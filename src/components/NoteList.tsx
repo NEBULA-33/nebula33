@@ -97,7 +97,7 @@ export default function NoteList({
                       {note.content
                         .replace(/!\[.*?\]\(.*?\)/g, '[Resim]')
                         .replace(/#\w+/g, '')
-                        .replace(/\[\[.*?\]\]/g, '')
+                        
                         .replace(/\s+/g, ' ')
                         .trim() || 'İçerik yok'}
                     </p>

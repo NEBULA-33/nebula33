@@ -8,6 +8,61 @@ import remarkGfm from 'remark-gfm';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 
+// TypeScript hatasını gidermek için img props'larına temel tipleri ekleyelim
+interface CustomImageProps {
+    src?: string;
+    alt?: string;
+    images: { src: string }[];
+    setImageIndex: (index: number) => void;
+    setLightboxOpen: (open: boolean) => void;
+}
+
+const CustomImage = ({ src, alt, images, setImageIndex, setLightboxOpen }: CustomImageProps) => {
+  if (!src) return null;
+  const handleClick = () => {
+    const index = images.findIndex((img: { src: string }) => img.src === src);
+    if (index !== -1) {
+      setImageIndex(index);
+      setLightboxOpen(true);
+    }
+  };
+  return <img src={src} alt={alt} onClick={handleClick} className="cursor-pointer max-w-full h-auto rounded-lg" />;
+};
+
+// TypeScript hatasını gidermek için link props'larına temel tipleri ekleyelim
+interface CustomLinkProps {
+    href?: string;
+    children?: React.ReactNode;
+    notes: Note[];
+    onNoteLinkClick: (note: Note) => void;
+}
+
+const CustomLink = ({ href, children, notes, onNoteLinkClick }: CustomLinkProps) => {
+    if (href && href.startsWith('/wikilink/')) {
+        const noteTitle = href.substring('/wikilink/'.length);
+        const decodedTitle = decodeURIComponent(noteTitle);
+        
+        // FİNAL ÇÖZÜM: Karşılaştırma yapmadan önce her iki metnin de başındaki/sonundaki boşlukları temizle (.trim())
+        const linkedNote = notes.find((n: Note) => n.title.trim().toLowerCase() === decodedTitle.trim().toLowerCase());
+
+        if (linkedNote) {
+            return (
+                <a 
+                    href="#" 
+                    onClick={(e) => { e.preventDefault(); onNoteLinkClick(linkedNote); }}
+                    // Stil Düzeltmesi: Kırmızı test stili kaldırıldı, istediğiniz mor stil geri getirildi.
+                    className="inline-block text-purple-400 font-semibold hover:underline bg-purple-900 bg-opacity-30 p-1 rounded mx-1"
+                >
+                    {children}
+                </a>
+            );
+        }
+        return <span className="text-gray-500 italic p-1">{children}</span>;
+    }
+    return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
+};
+
+
 interface ReadingPaneProps {
   activeNote: Note | null;
   notes: Note[];
@@ -19,69 +74,6 @@ interface ReadingPaneProps {
   canGoForward: boolean;
 }
 
-// Özel Resim Bileşeni: Tıklandığında Lightbox'ı açar
-const CustomImage = ({ src, alt, images, setImageIndex, setLightboxOpen }: any) => {
-  const handleClick = () => {
-    const index = images.findIndex((img: { src: string }) => img.src === src);
-    if (index !== -1) {
-      setImageIndex(index);
-      setLightboxOpen(true);
-    }
-  };
-
-  return <img src={src} alt={alt} onClick={handleClick} className="cursor-pointer max-w-full h-auto rounded-lg" />;
-};
-
-const WikiLinkRenderer = ({ content, notes, onNoteLinkClick, setImageIndex, setLightboxOpen }: { content: string, notes: Note[], onNoteLinkClick: (note: Note) => void, setImageIndex: (index: number) => void, setLightboxOpen: (open: boolean) => void }) => {
-  if (!content) return null;
-
-  // Not içeriğindeki tüm resim URL'lerini bir diziye toplar
-  const images = useMemo(() => {
-    if (!content) return [];
-    const regex = /!\[.*?\]\((.*?)\)/g;
-    const matches = [...content.matchAll(regex)];
-    return matches.map(match => ({ src: match[1] }));
-  }, [content]);
-
-  const parts = content.split(/(\[\[.*?\]\])/g);
-
-  return (
-    <div className="whitespace-pre-wrap">
-      {parts.map((part, index) => {
-        if (part.startsWith('[[') && part.endsWith(']]')) {
-          const noteTitle = part.substring(2, part.length - 2);
-          const linkedNote = notes.find(n => n.title.toLowerCase() === noteTitle.toLowerCase());
-          
-          if (linkedNote) {
-            return (
-              <a key={index} href="#" onClick={(e) => { e.preventDefault(); onNoteLinkClick(linkedNote); }}
-                className="inline-block text-purple-400 font-semibold hover:underline bg-purple-900 bg-opacity-30 p-1 rounded mx-1">
-                {noteTitle}
-              </a>
-            );
-          }
-          return <span key={index} className="text-gray-500 italic p-1">{noteTitle}</span>;
-        }
-        
-        return (
-          <ReactMarkdown
-            key={index}
-            remarkPlugins={[remarkGfm]}
-            components={{
-              img: (props) => (
-                <CustomImage {...props} images={images} setImageIndex={setImageIndex} setLightboxOpen={setLightboxOpen} />
-              ),
-            }}
-          >
-            {part}
-          </ReactMarkdown>
-        );
-      })}
-    </div>
-  );
-};
-
-
 export default function ReadingPane({ activeNote, notes, onEdit, onNoteLinkClick, onGoBack, onGoForward, canGoBack, canGoForward }: ReadingPaneProps) {
   const supabase = createClientComponentClient();
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -91,7 +83,6 @@ export default function ReadingPane({ activeNote, notes, onEdit, onNoteLinkClick
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [imageIndex, setImageIndex] = useState(0);
 
-  // Not içeriğindeki tüm resimleri toplayan ana liste
   const allImagesInNote = useMemo(() => {
     if (!activeNote?.content) return [];
     const regex = /!\[.*?\]\((.*?)\)/g;
@@ -99,6 +90,13 @@ export default function ReadingPane({ activeNote, notes, onEdit, onNoteLinkClick
     return matches.map(match => ({ src: match[1] }));
   }, [activeNote]);
   
+  const processedContent = useMemo(() => {
+    if (!activeNote?.content) return "";
+    return activeNote.content.replace(/\[\[(.*?)\]\]/g, (match, p1) => {
+        return `[${p1}](/wikilink/${encodeURIComponent(p1)})`;
+    });
+  }, [activeNote]);
+
   useEffect(() => {
     if (activeNote) {
       setIsLoading(true);
@@ -146,8 +144,20 @@ export default function ReadingPane({ activeNote, notes, onEdit, onNoteLinkClick
           </div>
           <button onClick={() => onEdit(activeNote)} className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 font-semibold">Düzenle</button>
         </div>
-        <div className="prose prose-invert prose-lg max-w-none">
-          <WikiLinkRenderer content={activeNote.content} notes={notes} onNoteLinkClick={onNoteLinkClick} setImageIndex={setImageIndex} setLightboxOpen={setLightboxOpen} />
+        <div className="prose prose-invert prose-lg max-w-none whitespace-pre-wrap">
+            <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                    img: (props) => (
+                        <CustomImage {...props} images={allImagesInNote} setImageIndex={setImageIndex} setLightboxOpen={setLightboxOpen} />
+                    ),
+                    a: (props) => (
+                        <CustomLink {...props} notes={notes} onNoteLinkClick={onNoteLinkClick} />
+                    ),
+                }}
+            >
+                {processedContent}
+            </ReactMarkdown>
         </div>
       </div>
       
