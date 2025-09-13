@@ -146,13 +146,13 @@ const NoteCreator = forwardRef<HTMLDivElement, NoteCreatorProps>(({ user, onNote
     commands.fullscreen, // <-- DÜZELTİLMİŞ HALİ
 ]}
                 // DÜZELTME: Geçersiz 'toolbarBackground' prop'u kaldırıldı.
-                className="!bg-[#0f1b2e] !border-gray-700" 
-                style={{
-        '--w-e-toolbar-background': '#09142bff', // Araç çubuğu arka planı
-        '--w-e-toolbar-color': '#A6B0C3',       // Butonların normal rengi
-        '--w-e-toolbar-hover-color': '#FFFFFF'    // Fare üzerine gelinceki rengi
-    }}
-            />
+                className="!bg-[#0f1b2e] !border-gray-700"
+    style={{
+        '--w-e-toolbar-background': '#1E2431',
+        '--w-e-toolbar-color': '#A6B0C3',
+        '--w-e-toolbar-hover-color': '#FFFFFF'
+    } as React.CSSProperties} // <-- BU SATIRI EKLEYİN
+/>
         </div>
         
         <div className="text-xs text-[#abbddb] mt-2 pl-2">
