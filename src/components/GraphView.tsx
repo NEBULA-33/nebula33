@@ -1,34 +1,28 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Note } from '../app/page';
-import ForceGraph2D from 'react-force-graph-2d';
+import ForceGraph2D, { NodeObject } from 'react-force-graph-2d';
+import jLouvain from 'jlouvain';
 
-// Bileşen tarafından kullanılan veri yapıları (arayüzler)
-interface GraphViewProps {
-  notes: Note[];
-  onNodeClick: (note: Note) => void;
-}
-interface GraphNode {
+// Tip tanımı doğru, 'x' ve 'y' özelliklerini içeriyor.
+interface GraphNode extends NodeObject {
   id: number;
   name: string;
+  community: number;
 }
 interface GraphLink {
   source: GraphNode | number;
   target: GraphNode | number;
 }
-interface GraphData {
-  nodes: GraphNode[];
-  links: GraphLink[];
-}
 
-export default function GraphView({ notes, onNodeClick }: GraphViewProps) {
-  // Fareyle üzerine gelinen notu hafızada tutmak için state
+// Farklı topluluklar için renk paleti
+const FgPalette = ["#f285b2", "#66d9ef", "#a6e22e", "#fd971f", "#ae81ff", "#e6db74", "#f92672"];
+
+export default function GraphView({ notes, onNodeClick }: { notes: Note[], onNodeClick: (note: Note) => void }) {
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
 
-  // Not listesi değiştiğinde, grafik verisini yeniden hesaplamak için useMemo kullanıyoruz.
-  // Bu, gereksiz hesaplamaları önleyerek performansı artırır.
-  const graphData: GraphData = useMemo(() => {
+  const graphData = useMemo(() => {
     if (!notes) return { nodes: [], links: [] };
 
     const nodes = notes.map(note => ({
@@ -42,53 +36,43 @@ export default function GraphView({ notes, onNodeClick }: GraphViewProps) {
     notes.forEach(note => {
       const matches = [...note.content.matchAll(regex)];
       matches.forEach(match => {
-        const linkedTitle = match[1].toLowerCase();
-        const targetNode = nodes.find(n => n.name.toLowerCase() === linkedTitle);
-        // Hedef not varsa ve hedef not kendisi değilse link oluştur
+        const linkedTitle = match[1].trim().toLowerCase();
+        const targetNode = nodes.find(n => n.name.trim().toLowerCase() === linkedTitle);
         if (targetNode && targetNode.id !== note.id) {
-          links.push({
-            source: note.id,
-            target: targetNode.id,
-          });
+          links.push({ source: note.id, target: targetNode.id });
         }
       });
     });
 
-    return { nodes, links };
+    // DÜZELTME: jLouvain kütüphanesi ID'leri string olarak bekliyor.
+    const node_ids_str = nodes.map(n => n.id.toString());
+    const edge_data_str = links.map(l => ({ 
+        source: (l.source as number).toString(), 
+        target: (l.target as number).toString(), 
+        weight: 1.0 
+    }));
+    
+    let communities: { [nodeId: string]: number } = {};
+    
+    if (node_ids_str.length > 0 && edge_data_str.length > 0) {
+        const communityGenerator = jLouvain.jLouvain();
+        communityGenerator.nodes(node_ids_str).edges(edge_data_str);
+        communities = communityGenerator();
+    }
+
+    const finalNodes: GraphNode[] = nodes.map(n => ({
+        ...n,
+        // DÜZELTME: Sonuçlar string ID'lerle geldiği için string ile arama yapıyoruz.
+        community: communities[n.id.toString()] ?? -1 
+    }));
+
+    return { nodes: finalNodes, links };
   }, [notes]);
 
-  // Üzerine gelinen nota bağlı olan komşuları ve linkleri bulmak için useMemo kullanıyoruz.
-  const { highlightedNodes, highlightedLinks } = useMemo(() => {
-    if (hoveredNode) {
-      const nodeSet = new Set<number>([hoveredNode.id]);
-      const linkSet = new Set<GraphLink>();
-
-      graphData.links.forEach(link => {
-        // Kütüphane link.source/target'ı nesneye çevirebilir.
-        // Bu yüzden her ihtimale karşı ID'leri kontrol ediyoruz.
-        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
-        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
-
-        if (sourceId === hoveredNode.id || targetId === hoveredNode.id) {
-          linkSet.add(link);
-          nodeSet.add(sourceId);
-          nodeSet.add(targetId);
-        }
-      });
-
-      return { highlightedNodes: nodeSet, highlightedLinks: linkSet };
-    }
-    return { highlightedNodes: new Set(), highlightedLinks: new Set() };
-  }, [hoveredNode, graphData]);
-
-  // Bu bileşen sadece tarayıcıda çalıştığı için, sunucu tarafında render edilmesini engelliyoruz.
   const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  useEffect(() => { setIsClient(true); }, []);
 
-  // Tıklama fonksiyonunu useCallback ile optimize ediyoruz.
-  const handleNodeClick = useCallback((node: any) => {
+  const handleNodeClick = useCallback((node: NodeObject) => {
     const clickedNote = notes.find(n => n.id === node.id);
     if (clickedNote) {
       onNodeClick(clickedNote);
@@ -96,38 +80,45 @@ export default function GraphView({ notes, onNodeClick }: GraphViewProps) {
   }, [notes, onNodeClick]);
 
   return (
-    <div className="mt-8 w-full max-w-7xl h-[600px] bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+    <div className="flex-1 bg-gray-900 overflow-hidden relative">
       {isClient && (
         <ForceGraph2D
           graphData={graphData}
           nodeLabel="name"
           onNodeClick={handleNodeClick}
           onNodeHover={node => setHoveredNode(node as GraphNode | null)}
+          linkColor={() => 'rgba(255, 255, 255, 0.2)'}
           
-          // Bağlantıların (çizgilerin) stilini belirliyoruz
-          linkColor={(link: any) => highlightedLinks.has(link) ? 'rgba(192, 132, 252, 1)' : 'rgba(255, 255, 255, 0.2)'}
-          linkWidth={(link: any) => highlightedLinks.has(link) ? 2 : 1}
-          linkDirectionalArrowLength={3.5}
-          linkDirectionalArrowRelPos={1}
-
-          // Notların (noktaların) nasıl çizileceğini belirliyoruz
-          nodeCanvasObject={(node: any, ctx, globalScale) => {
-            const label = node.name;
+          nodeCanvasObject={(node, ctx, globalScale) => {
+            const graphNode = node as GraphNode;
+            const label = graphNode.name;
             const fontSize = 12 / globalScale;
             ctx.font = `bold ${fontSize}px Sans-Serif`;
-            const isHighlighted = highlightedNodes.has(node.id);
 
-            // Yazının stilini belirliyoruz
+            const isSingleNode = graphNode.community === -1;
+            const communityColor = isSingleNode ? 'rgba(255, 255, 255, 0.6)' : FgPalette[graphNode.community % FgPalette.length];
+
+            let finalColor = communityColor;
+            let finalTextColor = 'rgba(255, 255, 255, 0.8)';
+            
+            if (hoveredNode) {
+              if (graphNode.community !== hoveredNode.community) {
+                finalColor = 'rgba(128, 128, 128, 0.45)';
+                finalTextColor = 'rgba(128, 128, 128, 0.5)';
+              }
+            }
+
+            if (node.x === undefined || node.y === undefined) return;
+
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, 4, 0, 2 * Math.PI, false);
+            ctx.fillStyle = finalColor;
+            ctx.fill();
+
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillStyle = isHighlighted ? 'rgba(233, 213, 255, 1)' : 'rgba(255, 255, 255, 0.8)';
+            ctx.fillStyle = finalTextColor;
             ctx.fillText(label, node.x, node.y + 10);
-
-            // Noktanın kendisini çiziyoruz
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, isHighlighted ? 6 : 4, 0, 2 * Math.PI, false);
-            ctx.fillStyle = isHighlighted ? 'rgba(192, 132, 252, 1)' : 'rgba(255, 255, 255, 0.6)';
-            ctx.fill();
           }}
         />
       )}

@@ -340,7 +340,7 @@ export default function Home() {
                 <ReadingPane activeNote={activeNote} notes={allNotes} onEdit={handleEditClick} onNoteLinkClick={handleSelectNote} onGoBack={goBack} onGoForward={goForward} canGoBack={historyIndex > 0} canGoForward={historyIndex < history.length - 1} />
               )
             )}
-            {viewMode === 'graph' && <DynamicGraphView notes={notesToDisplay} onNodeClick={handleEditClick} />}
+             {viewMode === 'graph' && <DynamicGraphView notes={notesToDisplay} onNodeClick={handleSelectNote} />}
             {viewMode === 'flashcard' && <FlashcardView notes={allNotes} />}
             {viewMode === 'review' && <ReviewView reviewNotes={reviewNotes} onReview={handleReview} />}
             {isQuizGeneratorVisible && <AIQuizGenerator selectedNotes={selectedNotes} />}
