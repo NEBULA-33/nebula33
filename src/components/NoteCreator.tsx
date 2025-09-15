@@ -146,7 +146,7 @@ const NoteCreator = forwardRef<HTMLDivElement, NoteCreatorProps>(({ user, onNote
     commands.fullscreen, // <-- DÜZELTİLMİŞ HALİ
 ]}
                 // DÜZELTME: Geçersiz 'toolbarBackground' prop'u kaldırıldı.
-                className="!bg-[#0f1b2e] !border-gray-700"
+               className="!bg-[#0f1b2e] !border-gray-700"
     style={{
         '--w-e-toolbar-background': '#1E2431',
         '--w-e-toolbar-color': '#A6B0C3',
